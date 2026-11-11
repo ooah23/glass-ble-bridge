@@ -1,0 +1,35 @@
+name: GlassBridge
+options:
+  bundleIdPrefix: dev.glassbridge
+  deploymentTarget:
+    iOS: "15.0"
+targets:
+  GlassBridge:
+    type: application
+    platform: iOS
+    sources:
+      - GlassBridge
+    info:
+      path: GlassBridge/Info.plist
+      properties:
+        CFBundleDisplayName: GlassBridge
+        CFBundleShortVersionString: "0.1.0"
+        CFBundleVersion: "1"
+        UILaunchScreen: {}
+        NSBluetoothAlwaysUsageDescription: GlassBridge advertises to your Google Glass over Bluetooth Low Energy.
+        NSBluetoothPeripheralUsageDescription: GlassBridge advertises to your Google Glass over Bluetooth Low Energy.
+        UIBackgroundModes:
+          - bluetooth-peripheral
+        CFBundleURLTypes:
+          - CFBundleURLName: dev.glassbridge.app
+            CFBundleURLSchemes:
+              - glassbridge
+        NSAppTransportSecurity:
+          NSAllowsArbitraryLoads: true
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: dev.glassbridge.app
+        SWIFT_VERSION: "5.0"
+        TARGETED_DEVICE_FAMILY: "1"
