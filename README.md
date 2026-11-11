@@ -5,6 +5,7 @@ Bluetooth LE bridge between an iPhone and a rooted Google Glass XE (Android 4.4.
 - `ios/`: SwiftUI app, CoreBluetooth peripheral, no third-party dependencies. Generated with XcodeGen (`ios/project.yml`).
 - `glass/`: Android API 19 Java app, GATT central, dark Glass-style card UI.
 - `docs/PROTOCOL.md`: GATT layout, framing, auth, messages.
+- `ci/workflow-ci.yml`: GitHub Actions workflow; copy to `.github/workflows/ci.yml` (pushing workflow files needs a token with the `workflow` scope).
 - `scripts/test-glass.sh`: plain-Java tests of framing, auth, scan-record parsing and backoff (needs only a JDK or JRE with jdk.compiler).
 
 ## Build
