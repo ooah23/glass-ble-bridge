@@ -15,9 +15,10 @@ struct ContentView: View {
         NavigationView {
             Form {
                 Section("Status") {
-                    Text(bridge.status)
-                    Text(bridge.authed ? "Authenticated" : (bridge.subscribed ? "Connected, not authenticated" : "No Glass"))
-                        .foregroundColor(bridge.authed ? .green : .secondary)
+                    Text(bridge.statusLine)
+                        .font(.headline)
+                        .foregroundColor(bridge.authed ? .green : (bridge.statusLine.hasPrefix("Link lost") ? .red : .primary))
+                    Text(bridge.detail).font(.footnote).foregroundColor(.secondary)
                     if bridge.queued > 0 { Text("\(bridge.queued) message(s) queued until Glass connects") }
                 }
                 Section("Shared secret (stored in keychain)") {

@@ -21,7 +21,7 @@ jobs:
       - name: Swift framing/auth tests
         run: |
           cd ios
-          swiftc -o /tmp/swifttests GlassBridge/Protocol.swift GlassBridge/Framing.swift GlassBridge/Auth.swift Tests/main.swift
+          swiftc -o /tmp/swifttests GlassBridge/Protocol.swift GlassBridge/Framing.swift GlassBridge/Auth.swift GlassBridge/LinkState.swift Tests/main.swift
           /tmp/swifttests
       - name: Generate Xcode project
         run: |

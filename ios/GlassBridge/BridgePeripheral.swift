@@ -1,9 +1,12 @@
 import Foundation
 import CoreBluetooth
+import UIKit
 
 /// CoreBluetooth peripheral. Advertises the GlassBridge service; Glass (central) writes to rx and subscribes to tx.
+/// Link state comes from heartbeats (5 s each way, 15 s silence = lost), not from CoreBluetooth callbacks alone.
 final class BridgePeripheral: NSObject, ObservableObject, CBPeripheralManagerDelegate {
-    @Published var status = "Starting"
+    @Published var statusLine = "Scanning"
+    @Published var detail = "Starting"
     @Published var subscribed = false
     @Published var authed = false
     @Published var queued = 0
@@ -18,10 +21,22 @@ final class BridgePeripheral: NSObject, ObservableObject, CBPeripheralManagerDel
     private var outFrames: [Data] = []
     private var held: [[String: Any]] = []   // messages waiting for auth
     private var nonce = ""
+    private var phase: LinkPhase = .scanning
+    private var btProblem: String?
+    private var mon = LinkMonitor()
+    private var timer: Timer?
+
+    private static var now: Double { ProcessInfo.processInfo.systemUptime }
 
     override init() {
         super.init()
-        manager = CBPeripheralManager(delegate: self, queue: nil)
+        manager = CBPeripheralManager(delegate: self, queue: nil,
+                                      options: [CBPeripheralManagerOptionRestoreIdentifierKey: "dev.glassbridge.peripheral"])
+        timer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in self?.tick() }
+        NotificationCenter.default.addObserver(self, selector: #selector(foreground),
+                                               name: UIApplication.willEnterForegroundNotification, object: nil)
+        NotificationCenter.default.addObserver(self, selector: #selector(foreground),
+                                               name: UIApplication.didBecomeActiveNotification, object: nil)
     }
 
     // MARK: public API
@@ -44,15 +59,86 @@ final class BridgePeripheral: NSObject, ObservableObject, CBPeripheralManagerDel
         send(["t": "now_playing", "title": title, "artist": artist, "state": state])
     }
 
+    // MARK: state
+
+    private func setPhase(_ p: LinkPhase) {
+        phase = p
+        refreshStatus()
+    }
+
+    private func refreshStatus() {
+        if let p = btProblem { statusLine = p; return }
+        statusLine = linkStatusText(phase, ageSec: mon.ageSeconds(now: BridgePeripheral.now))
+    }
+
+    /// Runs every second: send heartbeats, detect a dead link, refresh "last seen".
+    private func tick() {
+        if authed {
+            switch mon.tick(now: BridgePeripheral.now) {
+            case .send: enqueue(["t": "hb", "n": mon.counter])
+            case .lost: linkLost("heartbeat timeout 15s")
+            case .none: break
+            }
+        }
+        refreshStatus()
+    }
+
+    private func linkLost(_ reason: String) {
+        note("Link lost: \(reason)")
+        subscribed = false
+        authed = false
+        nonce = ""
+        outFrames.removeAll()
+        reasm = Framing.Reassembler()
+        setPhase(.lost(reason))
+        readvertise()
+    }
+
+    @objc private func foreground() { ensureAdvertising() }
+
+    /// Stop and start advertising so a fresh Glass scan can find us.
+    private func readvertise() {
+        guard manager.state == .poweredOn, tx != nil else { return }
+        manager.stopAdvertising()
+        startAdvertising()
+    }
+
+    private func ensureAdvertising() {
+        guard manager.state == .poweredOn else { return }
+        if tx == nil { setup(); return }
+        if !manager.isAdvertising { startAdvertising() }
+    }
+
+    private func startAdvertising() {
+        manager.startAdvertising([CBAdvertisementDataLocalNameKey: BridgeProtocol.localName,
+                                  CBAdvertisementDataServiceUUIDsKey: [serviceUUID]])
+    }
+
     // MARK: CBPeripheralManagerDelegate
+
+    func peripheralManager(_ peripheral: CBPeripheralManager, willRestoreState dict: [String: Any]) {
+        note("State restored by iOS")
+    }
 
     func peripheralManagerDidUpdateState(_ peripheral: CBPeripheralManager) {
         switch peripheral.state {
-        case .poweredOn: setup()
-        case .poweredOff: status = "Bluetooth is off"
-        case .unauthorized: status = "Bluetooth permission denied"
-        default: status = "Bluetooth unavailable"
+        case .poweredOn:
+            btProblem = nil
+            detail = "Bluetooth on"
+            setup()
+        case .poweredOff:
+            btProblem = "Bluetooth is off"
+            linkDown("Bluetooth is off")
+        case .unauthorized:
+            btProblem = "Bluetooth permission denied"
+        default:
+            btProblem = "Bluetooth unavailable"
         }
+        refreshStatus()
+    }
+
+    private func linkDown(_ reason: String) {
+        if subscribed || authed { linkLost(reason) }
     }
 
     private func setup() {
@@ -66,13 +152,14 @@ final class BridgePeripheral: NSObject, ObservableObject, CBPeripheralManagerDel
     }
 
     func peripheralManager(_ peripheral: CBPeripheralManager, didAdd service: CBService, error: Error?) {
-        if let error = error { status = "Service error: \(error.localizedDescription)"; return }
-        peripheral.startAdvertising([CBAdvertisementDataLocalNameKey: BridgeProtocol.localName,
-                                     CBAdvertisementDataServiceUUIDsKey: [serviceUUID]])
+        if let error = error { detail = "Service error: \(error.localizedDescription)"; return }
+        peripheral.stopAdvertising()
+        startAdvertising()
     }
 
     func peripheralManagerDidStartAdvertising(_ peripheral: CBPeripheralManager, error: Error?) {
-        status = error == nil ? "Advertising, waiting for Glass" : "Advertise error: \(error!.localizedDescription)"
+        detail = error == nil ? "Advertising as GlassBridge" : "Advertise error: \(error!.localizedDescription)"
+        note(detail)
     }
 
     func peripheralManager(_ peripheral: CBPeripheralManager, central: CBCentral, didSubscribeTo characteristic: CBCharacteristic) {
@@ -80,16 +167,13 @@ final class BridgePeripheral: NSObject, ObservableObject, CBPeripheralManagerDel
         authed = false
         reasm = Framing.Reassembler()
         outFrames.removeAll()
-        status = "Glass connected, authenticating"
+        setPhase(.connecting)
         note("Glass subscribed")
     }
 
     func peripheralManager(_ peripheral: CBPeripheralManager, central: CBCentral, didUnsubscribeFrom characteristic: CBCharacteristic) {
-        subscribed = false
-        authed = false
-        nonce = ""
-        status = "Advertising, waiting for Glass"
-        note("Glass disconnected")
+        note("Glass unsubscribed")
+        linkLost("Glass unsubscribed")
     }
 
     func peripheralManager(_ peripheral: CBPeripheralManager, didReceiveWrite requests: [CBATTRequest]) {
@@ -108,6 +192,7 @@ final class BridgePeripheral: NSObject, ObservableObject, CBPeripheralManagerDel
               let t = obj["t"] as? String else { return }
         switch t {
         case "hello":
+            setPhase(.authenticating)
             nonce = Auth.newNonce()
             enqueue(["t": "chal", "n": nonce])
         case "auth":
@@ -118,7 +203,9 @@ final class BridgePeripheral: NSObject, ObservableObject, CBPeripheralManagerDel
             if !want.isEmpty && Auth.constantTimeEqual(want, got) {
                 authed = true
                 enqueue(["t": "ok"])
-                status = "Glass authenticated"
+                mon.start(now: BridgePeripheral.now)
+                mon.received(now: BridgePeripheral.now)
+                setPhase(.paired)
                 note("Glass authenticated")
                 let pending = held
                 held.removeAll()
@@ -126,8 +213,18 @@ final class BridgePeripheral: NSObject, ObservableObject, CBPeripheralManagerDel
                 pending.forEach { enqueue($0) }
             } else {
                 enqueue(["t": "deny"])
+                setPhase(.lost(secret.isEmpty ? "no pair code set in app" : "wrong pair code"))
                 note(secret.isEmpty ? "Glass rejected: no secret set in app" : "Glass rejected: wrong secret")
             }
+        case "hb":
+            guard authed else { return }
+            mon.received(now: BridgePeripheral.now)
+            enqueue(["t": "hback", "n": obj["n"] as? Int ?? 0])
+            refreshStatus()
+        case "hback":
+            guard authed else { return }
+            mon.received(now: BridgePeripheral.now)
+            refreshStatus()
         case "cmd":
             if authed, let c = obj["c"] as? String { note("Glass command: \(c)") }
         default:
@@ -138,6 +235,7 @@ final class BridgePeripheral: NSObject, ObservableObject, CBPeripheralManagerDel
     private func enqueue(_ msg: [String: Any]) {
         guard let data = try? JSONSerialization.data(withJSONObject: msg) else { return }
         outFrames.append(contentsOf: Framing.chunk(data))
+        if outFrames.count > 200 { outFrames.removeFirst(outFrames.count - 200) }
         flush()
     }
 

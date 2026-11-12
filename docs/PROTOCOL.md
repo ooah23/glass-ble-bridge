@@ -51,6 +51,14 @@ Unknown `t` values are ignored, so the protocol can grow.
 
 ## Glass behavior
 
-Scan unfiltered in 6 s windows (API 19 `startLeScan`), match by parsing the scan record, connect, discover, subscribe, authenticate. Any failure or disconnect closes GATT and retries after 2, 4, 8 ... 60 s (reset after a successful auth). While connected there is no scanning. A rejected secret retries every 60 s.
+Scan unfiltered in 2 s windows (8 s off) (API 19 `startLeScan`), match by parsing the scan record, connect, discover, subscribe, authenticate. Any failure or disconnect closes GATT and retries after 2, 4, 8 ... 30 s (reset after a successful auth). While connected there is no scanning. A rejected secret retries every 30 s.
 
 Controls: tap = play/pause, swipe forward/back = next/prev, up/down = volume (key mapping is untested on hardware).
+
+## Heartbeat and link state (v1.1)
+
+After auth each side sends `{"t":"hb","n":<counter>}` every 5 s (counter starts at 1 per link, per side). The receiver answers `{"t":"hback","n":<same n>}`. Either frame counts as proof of life. If neither arrives for 15 s the link is lost: Glass does disconnect, GATT cache refresh, close, rescan; the iPhone marks the link lost, drops subscriber state and re-advertises. Both screens derive their state from these frames, not from the BLE connection flag alone. Unknown `t` values are still ignored, so v1 peers keep working (they just cannot detect a dead link).
+
+Displayed states (same wording on both ends): `Scanning` (Glass scanning / iPhone advertising), `Connecting`, `Authenticating`, `Paired - last seen Ns ago`, `Link lost (reason) - last seen Ns ago`. Reasons: `heartbeat timeout 15s`, `gatt 8 supervision timeout`, `gatt 19 remote terminated`, `gatt 22 local terminated`, `gatt 133 GATT_ERROR`, `Glass unsubscribed`, `Bluetooth is off`, `wrong pair code`, `secret rejected`.
+
+Glass radio hygiene: one scan or GATT at a time; scan 2 s on / 8 s off while searching; scanning stops once a match is found or connecting; `connectGatt` at least 5 s apart; failure backoff 2/4/8..30 s; the scan callback only compares name/UUID. The iPhone uses CoreBluetooth state restoration (`dev.glassbridge.peripheral`), `bluetooth-peripheral` background mode, and re-advertises on powered-on, foreground and unsubscribe. The pair code stays in the keychain.
