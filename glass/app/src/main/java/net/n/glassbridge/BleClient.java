@@ -230,7 +230,23 @@ public class BleClient {
     }
 
     /** Secret lives on the Glass at /sdcard/glass-bridge/secret (pushed by adb), never in the APK. */
-    private String readSecret() {
+    private String readSecret() { return secretOrCreate(); }
+
+    /** Pairing code: if no secret exists yet the Glass makes a random 8-char one, stores it and shows it on its card so N types it into the iPhone app (no secret ever travels through chat). */
+    static String secretOrCreate() {
+        String s = readFile();
+        if (s != null) return s;
+        try {
+            String al = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; java.security.SecureRandom r = new java.security.SecureRandom();
+            StringBuilder b = new StringBuilder();
+            for (int i = 0; i < 8; i++) b.append(al.charAt(r.nextInt(al.length())));
+            File d = new File(Environment.getExternalStorageDirectory(), "glass-bridge"); d.mkdirs();
+            java.io.FileWriter w = new java.io.FileWriter(new File(d, "secret")); w.write(b.toString()); w.close();
+            return b.toString();
+        } catch (Exception e) { return null; }
+    }
+
+    private static String readFile() {
         try {
             File f = new File(Environment.getExternalStorageDirectory(), "glass-bridge/secret");
             BufferedReader r = new BufferedReader(new FileReader(f));

@@ -21,8 +21,8 @@ struct ContentView: View {
                     if bridge.queued > 0 { Text("\(bridge.queued) message(s) queued until Glass connects") }
                 }
                 Section("Shared secret (stored in keychain)") {
-                    SecureField("Secret", text: $secret)
-                    Button("Save secret") { Keychain.set("secret", secret) }
+                    TextField("Pair code shown on the Glass", text: $secret).textInputAutocapitalization(.characters).autocorrectionDisabled()
+                    Button("Save code") { secret = String(secret.filter { !$0.isWhitespace }).uppercased(); Keychain.set("secret", secret) }
                 }
                 Section("Send card") {
                     TextField("Text", text: $cardText)
