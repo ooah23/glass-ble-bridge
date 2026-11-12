@@ -50,7 +50,7 @@ public class CardActivity extends Activity implements BridgeService.UiCallback {
         BridgeService.setUi(this);
         onState(BridgeService.lastState);
         if (BridgeService.lastCard != null) onCard(BridgeService.lastCard);
-        else { String c = BleClient.secretOrCreate(); body.setText(c == null ? "Waiting for phone" : "Pair code\n" + c.substring(0, 4) + " " + c.substring(4) + "\ntype it in the iPhone app"); }
+        else { String c = BleClient.secretOrCreate(); body.setText(c == null ? "Waiting for phone" : "Pair code\n" + c.substring(0, 4) + " " + c.substring(4)); }
         if (BridgeService.lastNowPlaying != null) onNowPlaying(BridgeService.lastNowPlaying);
     }
 
