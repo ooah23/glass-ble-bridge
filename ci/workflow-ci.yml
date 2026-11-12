@@ -2,6 +2,7 @@ name: ci
 on:
   push:
     branches: [main]
+    tags: ["v*"]
   pull_request:
   workflow_dispatch:
 
@@ -15,7 +16,7 @@ jobs:
       - run: scripts/test-glass.sh
 
   ios-unsigned-ipa:
-    runs-on: macos-14
+    runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
       - name: Swift framing/auth tests
@@ -43,3 +44,24 @@ jobs:
         with:
           name: GlassBridge-unsigned-ipa
           path: ios/GlassBridge-unsigned.ipa
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [glass-tests, ios-unsigned-ipa]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: GlassBridge-unsigned-ipa
+          path: dist
+      - name: Generate AltStore source and publish release assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag="${GITHUB_REF_NAME}"
+          python3 -I scripts/gen-altsource.py dist/GlassBridge-unsigned.ipa "${tag#v}" "$tag" dist/apps.json
+          gh release view "$tag" >/dev/null 2>&1 || gh release create "$tag" --title "$tag" --notes "GlassBridge $tag (unsigned IPA, AltStore source apps.json)"
+          gh release upload "$tag" dist/GlassBridge-unsigned.ipa dist/apps.json --clobber
