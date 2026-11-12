@@ -158,6 +158,16 @@ public class BleClient {
         h.postDelayed(scanWindowEnd, ScanScheduler.SCAN_ON_MS);
     }
 
+    /** Diagnostic: log every advertisement seen (rate: only while a scan window is open, 2 s per 10 s). Off in releases once pairing is proven. */
+    static final boolean DEBUG_SCAN = true;
+    private volatile int advLogged;
+    private static String hex(byte[] b) {
+        if (b == null) return "";
+        StringBuilder s = new StringBuilder();
+        for (int i = 0; i < b.length && i < 40; i++) s.append(String.format("%02x", b[i] & 0xff));
+        return s.toString();
+    }
+
     private void stopScan() {
         h.removeCallbacks(scanWindowEnd);
         if (scanActive && adapter != null) { try { adapter.stopLeScan(scanCb); } catch (Exception ignored) {} }
@@ -168,6 +178,7 @@ public class BleClient {
     /** Runs on a binder thread for every advertisement: compare name/uuid only, hand the first match to the main thread. */
     private final BluetoothAdapter.LeScanCallback scanCb = new BluetoothAdapter.LeScanCallback() {
         public void onLeScan(final BluetoothDevice dev, final int rssi, byte[] rec) {
+            if (DEBUG_SCAN && advLogged++ < 150) Log.d(TAG, "adv " + dev.getAddress() + " rssi " + rssi + " len " + (rec == null ? 0 : rec.length) + " hex " + hex(rec));
             if (matched || !ScanRecord.parse(rec).matches()) return;
             matched = true;
             h.post(new Runnable() { public void run() {
