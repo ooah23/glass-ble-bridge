@@ -15,7 +15,7 @@ jobs:
       - run: scripts/test-glass.sh
 
   ios-unsigned-ipa:
-    runs-on: macos-14
+    runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
       - name: Swift framing/auth tests
