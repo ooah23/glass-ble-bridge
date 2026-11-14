@@ -142,8 +142,8 @@ final class BridgePeripheral: NSObject, ObservableObject, CBPeripheralManagerDel
     }
 
     private func setup() {
-        let txc = CBMutableCharacteristic(type: txUUID, properties: [.notify], value: nil, permissions: [.readEncryptionRequired])
-        let rxc = CBMutableCharacteristic(type: rxUUID, properties: [.write, .writeWithoutResponse], value: nil, permissions: [.writeEncryptionRequired])
+        let txc = CBMutableCharacteristic(type: txUUID, properties: [.notify], value: nil, permissions: BridgeProtocol.requireEncryption ? [.readEncryptionRequired] : [.readable])
+        let rxc = CBMutableCharacteristic(type: rxUUID, properties: [.write, .writeWithoutResponse], value: nil, permissions: BridgeProtocol.requireEncryption ? [.writeEncryptionRequired] : [.writeable])
         tx = txc
         let svc = CBMutableService(type: serviceUUID, primary: true)
         svc.characteristics = [rxc, txc]

@@ -159,7 +159,7 @@ public class BleClient {
     }
 
     /** Diagnostic: log every advertisement seen (rate: only while a scan window is open, 2 s per 10 s). Off in releases once pairing is proven. */
-    static final boolean DEBUG_SCAN = true;
+    static final boolean DEBUG_SCAN = false;
     private volatile int advLogged;
     private static String hex(byte[] b) {
         if (b == null) return "";
@@ -242,6 +242,8 @@ public class BleClient {
                 Log.d(TAG, "onConnectionStateChange status=" + status + " (" + Status.gattName(status) + ") newState=" + newState + (g == gatt ? "" : " [stale]"));
                 if (g != gatt) return;
                 if (newState == BluetoothGatt.STATE_CONNECTED && status == BluetoothGatt.GATT_SUCCESS) {
+                    // a device bonded earlier through Settings leaves a stale GATT cache (service missing): drop it before discovery
+                    try { Log.d(TAG, "pre-discovery refresh -> " + g.getClass().getMethod("refresh").invoke(g)); } catch (Exception e) { Log.d(TAG, "refresh unavailable " + e); }
                     Log.d(TAG, "discoverServices");
                     if (!g.discoverServices()) fail("discoverServices failed to start");
                 } else if (running) fail(Status.reason(status) + ", state " + newState);
