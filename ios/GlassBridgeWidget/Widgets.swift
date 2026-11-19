@@ -11,9 +11,9 @@ struct HubWidgets: WidgetBundle {
 struct BoardEntry: TimelineEntry { let date: Date; let s: BoardSummary?; let stale: Bool }
 
 struct BoardProvider: TimelineProvider {
-    func placeholder(in: Context) -> BoardEntry { BoardEntry(date: Date(), s: .placeholder, stale: false) }
-    func getSnapshot(in: Context, completion: @escaping (BoardEntry) -> Void) { completion(placeholder(in: in)) }
-    func getTimeline(in: Context, completion: @escaping (Timeline<BoardEntry>) -> Void) {
+    func placeholder(in c: Context) -> BoardEntry { BoardEntry(date: Date(), s: .placeholder, stale: false) }
+    func getSnapshot(in c: Context, completion: @escaping (BoardEntry) -> Void) { completion(placeholder(in: c)) }
+    func getTimeline(in c: Context, completion: @escaping (Timeline<BoardEntry>) -> Void) {
         Task {
             let b = try? await fetchBoard()
             let e = BoardEntry(date: Date(), s: b.map { BoardSummary($0) }, stale: b?.isStale() ?? true)
