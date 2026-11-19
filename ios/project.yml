@@ -16,8 +16,8 @@ targets:
       path: GlassBridge/Info.plist
       properties:
         CFBundleDisplayName: GlassBridge
-        CFBundleShortVersionString: "0.3.0"
-        CFBundleVersion: "4"
+        CFBundleShortVersionString: "0.3.1"
+        CFBundleVersion: "5"
         UILaunchScreen: {}
         NSBluetoothAlwaysUsageDescription: GlassBridge advertises to your Google Glass over Bluetooth Low Energy.
         NSBluetoothPeripheralUsageDescription: GlassBridge advertises to your Google Glass over Bluetooth Low Energy.
@@ -50,8 +50,8 @@ targets:
       path: GlassBridgeWidget/Info.plist
       properties:
         CFBundleDisplayName: Hub widgets
-        CFBundleShortVersionString: "0.3.0"
-        CFBundleVersion: "4"
+        CFBundleShortVersionString: "0.3.1"
+        CFBundleVersion: "5"
         NSExtension:
           NSExtensionPointIdentifier: com.apple.widgetkit-extension
         NSAppTransportSecurity:
