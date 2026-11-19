@@ -2,24 +2,31 @@ name: GlassBridge
 options:
   bundleIdPrefix: dev.glassbridge
   deploymentTarget:
-    iOS: "15.0"
+    iOS: "16.2"
 targets:
   GlassBridge:
     type: application
     platform: iOS
     sources:
       - GlassBridge
+      - Shared
+    dependencies:
+      - target: GlassBridgeWidget
     info:
       path: GlassBridge/Info.plist
       properties:
         CFBundleDisplayName: GlassBridge
-        CFBundleShortVersionString: "0.2.1"
-        CFBundleVersion: "3"
+        CFBundleShortVersionString: "0.3.0"
+        CFBundleVersion: "4"
         UILaunchScreen: {}
         NSBluetoothAlwaysUsageDescription: GlassBridge advertises to your Google Glass over Bluetooth Low Energy.
         NSBluetoothPeripheralUsageDescription: GlassBridge advertises to your Google Glass over Bluetooth Low Energy.
         UIBackgroundModes:
           - bluetooth-peripheral
+          - fetch
+        NSSupportsLiveActivities: true
+        BGTaskSchedulerPermittedIdentifiers:
+          - dev.glassbridge.app.refresh
         CFBundleURLTypes:
           - CFBundleURLName: dev.glassbridge.app
             CFBundleURLSchemes:
@@ -31,5 +38,26 @@ targets:
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: dev.glassbridge.app
+        SWIFT_VERSION: "5.0"
+        TARGETED_DEVICE_FAMILY: "1"
+  GlassBridgeWidget:
+    type: app-extension
+    platform: iOS
+    sources:
+      - GlassBridgeWidget
+      - Shared
+    info:
+      path: GlassBridgeWidget/Info.plist
+      properties:
+        CFBundleDisplayName: Hub widgets
+        CFBundleShortVersionString: "0.3.0"
+        CFBundleVersion: "4"
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension
+        NSAppTransportSecurity:
+          NSAllowsArbitraryLoads: true
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: dev.glassbridge.app.widget
         SWIFT_VERSION: "5.0"
         TARGETED_DEVICE_FAMILY: "1"

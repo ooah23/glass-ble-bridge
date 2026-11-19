@@ -59,4 +59,20 @@ check(linkStatusText(.connecting, ageSec: 4) == "Connecting", "text connecting")
 check(linkStatusText(.authenticating, ageSec: nil) == "Authenticating", "text auth")
 check(linkStatusText(.scanning, ageSec: nil) == "Scanning", "text scanning")
 
+
+// Board / summary
+let boardJSON = """
+{"updated": 1000, "health": {"load": 3.5, "temp_c": 65}, "projects": [
+ {"name":"school","missing":true},
+ {"name":"a","open":1,"done":9,"waiting":0,"hold":0,"total":10,"pct":90,"next":["fix Shadow mode"],"age_h":1.0},
+ {"name":"b","open":5,"done":5,"waiting":0,"hold":0,"total":10,"pct":50,"next":[],"age_h":2.0},
+ {"name":"c","open":0,"done":4,"total":4,"pct":100,"next":[],"age_h":9}]}
+"""
+let board = try! JSONDecoder().decode(Board.self, from: Data(boardJSON.utf8))
+check(board.live.count == 3, "missing projects dropped")
+let sum = BoardSummary(board)
+check(sum.lines == ["b 50% 5/10", "a 90% 9/10"], "busiest first, idle omitted")
+check(sum.top == "fix Paper mode", "paper wording")
+check(sum.healthText == "load 3.5 65C", "health text")
+check(board.isStale(now: Date(timeIntervalSince1970: 1901)) && !board.isStale(now: Date(timeIntervalSince1970: 1100)), "stale marker")
 if failures == 0 { print("OK swift tests") } else { exit(1) }
